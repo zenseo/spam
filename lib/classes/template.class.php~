@@ -1,0 +1,140 @@
+<?php
+/**
+ * Класс для работы с HTML шаблонами писем.  
+*/
+class template
+	{
+		/**
+		 * Тут хранится HTML код шаблона письма
+		 * @var string
+		*/
+		protected $_tmp;
+		
+		
+		/**
+		 * Метод загружает HTML шаблон из файла
+		 * @param string $path путь к файлу с шаблоном
+		 * @return bool (true если никаких проблем с file_get_contents, false если всё плохо)
+		*/
+		public function setTemplateAsFile($path=null)
+			{
+				$path = ROOT_PATH."/{$path}";
+				
+				$file = file_get_contents($path);
+				if($file!==false)
+					{
+						$this->_tmp = $file;
+					}
+				else
+					{
+						return false;
+					}
+			}
+		
+		/**
+		 * Метод принимает HTML шаблон "на лету"
+		 * @param string $html HTML код
+		 * @return bool (true если в $html что-то есть, false если $html пуст)
+		*/
+		public function setTemplateAsHtml($html=null)
+			{
+				if(empty($html)==false)
+					{
+						$this->_tmp = $html;
+					}
+				else
+					{
+						return false;
+					}
+			}
+		
+		
+		/**
+		 * Метод возвращает HTML шаблон письма
+		 * @return bool|string (html-код, если всё хорошо или false, если $this->_tmp пуст)
+		*/
+		public function getTemplate()
+			{
+				if(!empty($this->_tmp))
+					{
+						return $this->_tmp;
+					}
+				else
+					{
+						return false;
+					}
+			}
+		
+		/**
+		 * Метод заменяет в HTML шаблоне пути до картинок на уникальные ID вложений, и прикрепляет картинки как вложения к письму.
+		*/
+		public function imgReplace(Swift_Message $message)
+			{
+				//с помощью регулярных выражений выдергиваем содержание SRC тегов IMG
+				preg_match_all("/<img src=\"(\/)(.*)\" alt=\"(.*)\" width=\"(.*)\" height=\"(.*)\" border=\"(.*)\" \/>/mUi", $this->_tmp, $result);
+			
+				$img_paths = $result[2];
+				
+				
+				echo "<pre>";
+				print_r($img_paths);
+				echo "</pre>";
+				
+				
+				foreach($img_paths as $key=>$value)
+					{
+						//указываем полный путь до картинки от корня сервера
+						$path_to_img = ROOT_PATH."/{$value}";
+
+						/*
+						
+						echo "<br />";
+						*/
+						$replace = "/{$value}";
+						
+						//прикрепляем картинку к письму и получаем её уникальный ID
+						$cid = $message->embed(Swift_Image::fromPath($path_to_img));
+						
+						//заменяем в SRC адрес текущей картинки, на её уникальный ID
+						$this->_tmp = str_replace($replace, $cid, $this->_tmp);
+					}
+				
+				
+			}
+			
+		/**
+		 * Метод возвращает содержимое тега TITLE
+		 * @return bool|string (содержимое TITLE, если всё хорошо или false, если TITLE пуст или не существует)
+		*/
+		public function getTitle()
+			{
+				//с помощью регулярных выражений выдергиваем содержание тега TITLE
+				preg_match("/\<title\>(.+)\<\/title\>/mui", $this->_tmp, $matches);
+				
+				//$matches[0] содержит часть строки, соответствующую вхождению всего шаблона
+				//$matches[1] содержит часть строки, соответствующую первой подмаске
+				
+				if(isset($matches[1]) AND empty($matches[1])==false)
+					{
+						return $matches[1];
+					}
+				else
+					{
+						return false;
+					}
+			}
+		
+		public function setUnsubscribeCode($letter_uid=null)
+			{
+				if($letter_uid==null)
+					{
+						return false;
+					}
+				else
+					{
+						preg_match("/unsub.php\?code\=(\d{1,}l\d{1,})/mui", $this->_tmp, $matches);
+						$this->_tmp = str_replace($matches['1'], $letter_uid, $this->_tmp);
+					}
+			}
+	}
+?>
